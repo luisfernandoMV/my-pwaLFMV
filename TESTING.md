@@ -34,9 +34,11 @@ Pasos (Firefox):
   - En Chrome/Edge: busca el botón de Install o en DevTools → Application → Manifest → "Display: standalone" y prueba "Install".
 - Operación offline del formulario:
   - Ir a Network → Offline, crear acciones con el formulario. Verificar en Application → IndexedDB que las entradas están.
-  - Volver online y verificar sincronización al backend.
-- Recepción de notificaciones Push:
-  - Otorgar permiso, suscribirse y ejecutar el endpoint `POST /api/push-test` para verificar recepción.
+  - Volver online y verificar que los datos permanecen en IndexedDB. No hay sincronización remota en este build.
+- Recepción de notificaciones (modo cliente-only):
+  - Otorgar permiso desde la UI (botón "Permitir notificaciones").
+  - Usar el botón "Enviar notificación de prueba" para generar notificaciones locales.
+  - Nota: ya no existe el endpoint `POST /api/push-test` porque el proyecto no incluye backend.
 
 ## 4) Lighthouse (auditoría automática)
 

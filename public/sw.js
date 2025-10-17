@@ -74,17 +74,16 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 3) API requests - network-first to ensure freshness
+  // 3) API requests - default to network, but provide offline JSON fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(req).then((res) => {
-        // on success, optionally cache a copy in dynamic cache
         if (res && res.status === 200 && req.method === 'GET') {
           const clone = res.clone()
           caches.open(CACHE_NAME_DYNAMIC).then((c) => c.put(req, clone))
         }
         return res
-      }).catch(() => caches.match(req).then((cached) => cached || new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })))
+      }).catch(() => new Response(JSON.stringify({ error: 'offline', message: 'Client-only build: no backend available' }), { status: 503, headers: { 'Content-Type': 'application/json' } }))
     )
     return
   }
@@ -172,28 +171,11 @@ async function deleteActivity(id) {
 
 async function syncEntries() {
   try {
+    // En un build client-only no hay backend: aquí podemos simplemente dejar las entradas locales
+    // o implementar una exportación automática (por ahora no borrar nada).
     const items = await getAllActivities()
-    if (!items || items.length === 0) return
-    // Enviar los datos al endpoint del backend
-    // In development we may run the backend on localhost:4001 — use absolute URL so SW can reach it
-    const backendUrl = 'http://localhost:4001/api/sync-entries'
-    const resp = await fetch(backendUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entries: items })
-    })
-    if (resp && resp.ok) {
-      // eliminar entradas sincronizadas
-      for (const it of items) {
-        try {
-          await deleteActivity(it.id)
-        } catch (err) {
-          console.warn('No se pudo eliminar entrada sincronizada', it, err)
-        }
-      }
-    } else {
-      console.warn('Sync request failed', resp && resp.status)
-    }
+    console.log('syncEntries called (client-only). items:', items && items.length)
+    return
   } catch (err) {
     console.error('Error during syncEntries', err)
   }
