@@ -7,10 +7,13 @@ async function registerSync() {
   try {
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
       const reg = await navigator.serviceWorker.ready;
-      // ServiceWorkerRegistration may not have proper TS types for sync in this project setup
-      const anyReg: any = reg;
-      if (anyReg.sync && typeof anyReg.sync.register === 'function') {
-        await anyReg.sync.register('sync-entries');
+      // ServiceWorkerRegistration may not expose the sync type in this TS setup.
+      // Narrow to the expected shape instead of using `any`.
+      const maybeReg = reg as ServiceWorkerRegistration & {
+        sync?: { register: (tag: string) => Promise<void> };
+      };
+      if (maybeReg.sync && typeof maybeReg.sync.register === 'function') {
+        await maybeReg.sync.register('sync-entries');
       }
       console.log('Background sync registrado: sync-entries');
     }

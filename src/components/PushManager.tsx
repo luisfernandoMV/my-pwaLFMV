@@ -22,12 +22,19 @@ export default function PushManager() {
       // Guarda una marca local para indicar que el usuario aceptó (modo client-only)
       try {
         localStorage.setItem('notificationsSubscribed', '1');
-      } catch {}
+      } catch (e) {
+        // If localStorage is unavailable (e.g., private mode), ignore but log for debugging.
+         
+        console.warn('localStorage unavailable for notification flag', e);
+      }
       alert('Notificaciones habilitadas (modo cliente)');
     } catch (err) {
-      console.error('subscribe error', err);
-      const anyErr: any = err;
-      const msg = anyErr && anyErr.message ? anyErr.message : String(anyErr);
+        console.error('subscribe error', err);
+        const unknownErr: unknown = err;
+        const msg =
+          typeof unknownErr === 'object' && unknownErr !== null && 'message' in unknownErr
+            ? String((unknownErr as { message?: unknown }).message)
+            : String(unknownErr);
       setLastError(msg);
       alert('Fallo al habilitar notificaciones: ' + msg);
     }
@@ -67,12 +74,13 @@ export default function PushManager() {
         'No es posible mostrar la notificación (permiso o soporte)'
       );
     } catch (err) {
-      console.error('sendTest failed', err);
-      const anyErr: any = err;
-      alert(
-        'Fallo al enviar notificación: ' +
-          (anyErr && anyErr.message ? anyErr.message : String(anyErr))
-      );
+        console.error('sendTest failed', err);
+        const unknownErr: unknown = err;
+        const errMsg =
+          typeof unknownErr === 'object' && unknownErr !== null && 'message' in unknownErr
+            ? String((unknownErr as { message?: unknown }).message)
+            : String(unknownErr);
+        alert('Fallo al enviar notificación: ' + errMsg);
     }
   }
 
