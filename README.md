@@ -8,6 +8,8 @@ Principales cambios:
 - Eliminado el directorio `server/` (ya no hay API ni almacenamiento remoto).
 - `PushManager` y el Service Worker han sido adaptados a un modo "cliente-only" que muestra notificaciones locales y mantiene los datos en IndexedDB.
 
+Nota de seguridad: se ha eliminado `vapid.json` del repositorio para evitar exponer claves privadas. Si tenías claves VAPID en el repo, crea nuevas y guárdalas fuera del control de versión.
+
 Si quieres restaurar un backend o usar notificaciones push reales (VAPID/FCM), tendrás que volver a añadir un servidor que gestione suscripciones y envíe notificaciones.
 
 ## Desarrollo
