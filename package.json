@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "prepare": "husky"
+  "dev": "vite",
+  "build": "tsc -b && vite build",
+  "lint": "eslint .",
+  "preview": "vite preview",
+  "serve": "npx http-server dist -p 8080",
+  "lhci": "npx -y @lhci/cli autorun --collect.url=http://127.0.0.1:8080 --upload.target=temporary-public-storage",
+  "prepare": "husky"
   },
   "dependencies": {
     "react": "^19.1.1",

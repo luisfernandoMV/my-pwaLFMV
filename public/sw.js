@@ -1,23 +1,22 @@
-const CACHE_NAME = 'my-pwa-shell-v1';
-// devo de colocar /assets/????
-//respuesta: No es necesario incluir la carpeta /assets/ a menos que tengas archivos específicos allí que quieras cachear. En este caso, los archivos listados en APP_SHELL son suficientes para el funcionamiento básico de la PWA.
+const CACHE_NAME_STATIC = 'my-pwa-static-v2';
+const CACHE_NAME_DYNAMIC = 'my-pwa-dynamic-v1';
+const CACHE_NAME_IMAGES = 'my-pwa-images-v1';
+
+// App shell: archivos estáticos esenciales (cache-first)
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/App.tsx',
   '/vite.svg',
-  '/manifest.json'
+  '/manifest.json',
+  '/offline.html'
 ];
 // instalar service worker y cachear assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // cache app shell assets
+    caches.open(CACHE_NAME_STATIC).then((cache) => {
       return cache.addAll(APP_SHELL).catch((err) => {
         console.error('Some assets failed to cache during install', err);
       });
-      
     })
   );
   self.skipWaiting();
@@ -28,42 +27,85 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
+          if (![CACHE_NAME_STATIC, CACHE_NAME_DYNAMIC, CACHE_NAME_IMAGES].includes(key)) {
+            return caches.delete(key);
+          }
         })
       )
     )
   );
   self.clients.claim();
 });
-// manejar fetch events para servir desde cache o red
+// manejar fetch events con estrategias distintas
 self.addEventListener('fetch', (event) => {
-  // For navigation requests, try cache first then network (offline fallback)
-  if (event.request.mode === 'navigate') {
+  const req = event.request
+  const url = new URL(req.url)
+
+  // 1) App shell (HTML/CSS/JS) - cache-first
+  if (req.method === 'GET' && (req.destination === 'document' || req.destination === 'script' || req.destination === 'style')) {
     event.respondWith(
-      caches.match('/index.html').then((resp) => resp || fetch('/index.html'))
-    );
-    return;
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        // cache fetched shell assets
+        if (res && res.status === 200) {
+          const resClone = res.clone()
+          caches.open(CACHE_NAME_STATIC).then((c) => c.put(req, resClone))
+        }
+        return res
+      }).catch(() => {
+        // fallback to offline page for navigation/documents
+        if (req.destination === 'document') return caches.match('/offline.html')
+      }))
+    )
+    return
   }
 
-  // For other requests, try cache first, then network, then cache the response
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((res) => {
-          // only cache successful GET responses
-          if (!res || res.status !== 200 || event.request.method !== 'GET') return res;
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
-          return res;
-        })
-        .catch(() => {
-          // optional: return a fallback image or offline page if present
-          return caches.match('/index.html');
-        });
-    })
-  );
-});
+  // 2) Images - stale-while-revalidate
+  if (req.destination === 'image') {
+    event.respondWith(
+      caches.open(CACHE_NAME_IMAGES).then(async (cache) => {
+        const cached = await cache.match(req)
+        const networkFetch = fetch(req).then((res) => {
+          if (res && res.status === 200) cache.put(req, res.clone())
+          return res
+        }).catch(() => null)
+        return cached || networkFetch
+      })
+    )
+    return
+  }
+
+  // 3) API requests - network-first to ensure freshness
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(req).then((res) => {
+        // on success, optionally cache a copy in dynamic cache
+        if (res && res.status === 200 && req.method === 'GET') {
+          const clone = res.clone()
+          caches.open(CACHE_NAME_DYNAMIC).then((c) => c.put(req, clone))
+        }
+        return res
+      }).catch(() => caches.match(req).then((cached) => cached || new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })))
+    )
+    return
+  }
+
+  // 4) Other GET requests - try cache first then network
+  if (req.method === 'GET') {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        // cache dynamic GET responses
+        if (res && res.status === 200) {
+          const resClone = res.clone()
+          caches.open(CACHE_NAME_DYNAMIC).then((c) => c.put(req, resClone))
+        }
+        return res
+      }).catch(() => {
+        // final fallback to offline page for navigations
+        if (req.destination === 'document') return caches.match('/offline.html')
+      }))
+    )
+  }
+})
 
 // Simple message handler to support skipWaiting from the page
 self.addEventListener('message', (event) => {
@@ -71,3 +113,115 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// Background Sync: cuando volvamos online, enviar las entradas guardadas en IndexedDB
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-entries') {
+    event.waitUntil(syncEntries())
+  }
+})
+
+// Helper básico de IndexedDB dentro del worker
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('pwa-activities-db', 1)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains('activities')) {
+        db.createObjectStore('activities', { keyPath: 'id', autoIncrement: true })
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function getAllActivities() {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('activities', 'readonly')
+    const store = tx.objectStore('activities')
+    const req = store.getAll()
+    req.onsuccess = () => {
+      resolve(req.result)
+      db.close()
+    }
+    req.onerror = () => {
+      reject(req.error)
+      db.close()
+    }
+  })
+}
+
+async function deleteActivity(id) {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('activities', 'readwrite')
+    const store = tx.objectStore('activities')
+    const req = store.delete(id)
+    req.onsuccess = () => {
+      resolve()
+      db.close()
+    }
+    req.onerror = () => {
+      reject(req.error)
+      db.close()
+    }
+  })
+}
+
+async function syncEntries() {
+  try {
+    const items = await getAllActivities()
+    if (!items || items.length === 0) return
+    // Enviar los datos al endpoint del backend
+    // In development we may run the backend on localhost:4001 — use absolute URL so SW can reach it
+    const backendUrl = 'http://localhost:4001/api/sync-entries'
+    const resp = await fetch(backendUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: items })
+    })
+    if (resp && resp.ok) {
+      // eliminar entradas sincronizadas
+      for (const it of items) {
+        try {
+          await deleteActivity(it.id)
+        } catch (err) {
+          console.warn('No se pudo eliminar entrada sincronizada', it, err)
+        }
+      }
+    } else {
+      console.warn('Sync request failed', resp && resp.status)
+    }
+  } catch (err) {
+    console.error('Error during syncEntries', err)
+  }
+}
+
+// Push events: mostrar notificaciones push entrantes
+self.addEventListener('push', (event) => {
+  try {
+    const data = event.data ? event.data.json() : { title: 'Notificación', body: 'Tienes una notificación' }
+    const title = data.title || 'Notificación'
+    const options = {
+      body: data.body || '',
+      icon: '/vite.svg',
+      badge: '/vite.svg',
+      data: data
+    }
+    event.waitUntil(self.registration.showNotification(title, options))
+  } catch (err) {
+    console.error('Error handling push event', err)
+  }
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((cl) => {
+      if (cl.length > 0) return cl[0].focus()
+      return clients.openWindow('/')
+    })
+  )
+})
