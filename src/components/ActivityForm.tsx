@@ -26,7 +26,7 @@ type Props = {
 export default function ActivityForm({ onSave }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-
+ 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return

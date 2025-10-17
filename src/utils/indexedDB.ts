@@ -47,7 +47,7 @@ export async function getAllActivities(): Promise<Activity[]> {
     const tx = db.transaction(STORE_NAME, 'readonly')
     const store = tx.objectStore(STORE_NAME)
     const req = store.getAll()
-    req.onsuccess = () => {
+    req.onsuccess = () => { 
       resolve((req.result as Activity[]).sort((a, b) => b.createdAt - a.createdAt))
       db.close()
     }
