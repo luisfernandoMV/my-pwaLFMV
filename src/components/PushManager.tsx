@@ -1,72 +1,93 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
 export default function PushManager() {
-  const [status, setStatus] = useState<string>(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
-  const [lastError, setLastError] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>(
+    typeof Notification !== 'undefined'
+      ? Notification.permission
+      : 'unsupported'
+  );
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof Notification !== 'undefined') setStatus(Notification.permission)
-  }, [])
+    if (typeof Notification !== 'undefined') setStatus(Notification.permission);
+  }, []);
 
   async function subscribe() {
     try {
-      if (typeof Notification === 'undefined') throw new Error('Notifications API no disponible')
-      const permission = await Notification.requestPermission()
-      setStatus(permission)
-      if (permission !== 'granted') return
+      if (typeof Notification === 'undefined')
+        throw new Error('Notifications API no disponible');
+      const permission = await Notification.requestPermission();
+      setStatus(permission);
+      if (permission !== 'granted') return;
       // Guarda una marca local para indicar que el usuario aceptó (modo client-only)
-      try { localStorage.setItem('notificationsSubscribed', '1') } catch {}
-      alert('Notificaciones habilitadas (modo cliente)')
+      try {
+        localStorage.setItem('notificationsSubscribed', '1');
+      } catch {}
+      alert('Notificaciones habilitadas (modo cliente)');
     } catch (err) {
-      console.error('subscribe error', err)
-      const anyErr: any = err
-      const msg = anyErr && anyErr.message ? anyErr.message : String(anyErr)
-      setLastError(msg)
-      alert('Fallo al habilitar notificaciones: ' + msg)
+      console.error('subscribe error', err);
+      const anyErr: any = err;
+      const msg = anyErr && anyErr.message ? anyErr.message : String(anyErr);
+      setLastError(msg);
+      alert('Fallo al habilitar notificaciones: ' + msg);
     }
   }
 
   async function sendTest() {
     try {
-      const title = 'Notificación de prueba'
+      const title = 'Notificación de prueba';
       const options: NotificationOptions = {
         body: 'Hola desde la app (cliente-only)',
         icon: '/vite.svg',
         badge: '/vite.svg',
-        data: { local: true }
-      }
+        data: { local: true },
+      };
 
       // Preferir mostrar la notificación desde el Service Worker para consistencia
       if (navigator && 'serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.ready
+        const reg = await navigator.serviceWorker.ready;
         if (reg && typeof reg.showNotification === 'function') {
-          reg.showNotification(title, options)
-          alert('Notificación enviada (desde Service Worker)')
-          return
+          reg.showNotification(title, options);
+          alert('Notificación enviada (desde Service Worker)');
+          return;
         }
       }
 
       // Fallback directo desde la página
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification(title, options)
-        alert('Notificación enviada (desde página)')
-        return
+      if (
+        typeof Notification !== 'undefined' &&
+        Notification.permission === 'granted'
+      ) {
+        new Notification(title, options);
+        alert('Notificación enviada (desde página)');
+        return;
       }
 
-      throw new Error('No es posible mostrar la notificación (permiso o soporte)')
+      throw new Error(
+        'No es posible mostrar la notificación (permiso o soporte)'
+      );
     } catch (err) {
-      console.error('sendTest failed', err)
-      const anyErr: any = err
-      alert('Fallo al enviar notificación: ' + (anyErr && anyErr.message ? anyErr.message : String(anyErr)))
+      console.error('sendTest failed', err);
+      const anyErr: any = err;
+      alert(
+        'Fallo al enviar notificación: ' +
+          (anyErr && anyErr.message ? anyErr.message : String(anyErr))
+      );
     }
   }
 
   return (
-    <div style={{display:'flex',gap:8,alignItems:'center'}}>
-      <div>Notificaciones: <strong>{status}</strong></div>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div>
+        Notificaciones: <strong>{status}</strong>
+      </div>
       <button onClick={subscribe}>Permitir notificaciones</button>
       <button onClick={sendTest}>Enviar notificación de prueba</button>
-      {lastError ? <div style={{color:'crimson',marginLeft:8}}>Error: {lastError}</div> : null}
+      {lastError ? (
+        <div style={{ color: 'crimson', marginLeft: 8 }}>
+          Error: {lastError}
+        </div>
+      ) : null}
     </div>
-  )
+  );
 }

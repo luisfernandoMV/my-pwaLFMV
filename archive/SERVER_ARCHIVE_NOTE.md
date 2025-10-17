@@ -1,6 +1,7 @@
 The original `server/` folder was intended to be removed when converting the repo to client-only. If these files are still present, please either delete the `server/` folder or move it to this `archive/` directory.
 
 Files that should be removed or archived:
+
 - server/index.js
 - server/db.js
 - server/vapid.json

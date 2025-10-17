@@ -5,6 +5,7 @@ Este repositorio contiene una Progressive Web App implementada con React + TypeS
 Nota: se eliminó el backend del proyecto. Ahora la aplicación es 100% client-side. Todas las funcionalidades de persistencia usan IndexedDB / localStorage y las notificaciones se manejan desde el cliente (Service Worker o Notification API). Esto facilita desplegarla como un sitio estático.
 
 Principales cambios:
+
 - Eliminado el directorio `server/` (ya no hay API ni almacenamiento remoto).
 - `PushManager` y el Service Worker han sido adaptados a un modo "cliente-only" que muestra notificaciones locales y mantiene los datos en IndexedDB.
 
