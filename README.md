@@ -1,69 +1,31 @@
-# React + TypeScript + Vite
+# my-pwaLFMV — Client-only PWA (React + TypeScript + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este repositorio contiene una Progressive Web App implementada con React + TypeScript + Vite.
 
-Currently, two official plugins are available:
+Nota: se eliminó el backend del proyecto. Ahora la aplicación es 100% client-side. Todas las funcionalidades de persistencia usan IndexedDB / localStorage y las notificaciones se manejan desde el cliente (Service Worker o Notification API). Esto facilita desplegarla como un sitio estático.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Principales cambios:
 
-## Expanding the ESLint configuration
+- Eliminado el directorio `server/` (ya no hay API ni almacenamiento remoto).
+- `PushManager` y el Service Worker han sido adaptados a un modo "cliente-only" que muestra notificaciones locales y mantiene los datos en IndexedDB.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Nota de seguridad: se ha eliminado `vapid.json` del repositorio para evitar exponer claves privadas. Si tenías claves VAPID en el repo, crea nuevas y guárdalas fuera del control de versión.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Si quieres restaurar un backend o usar notificaciones push reales (VAPID/FCM), tendrás que volver a añadir un servidor que gestione suscripciones y envíe notificaciones.
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+## Desarrollo
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Instala dependencias y arranca Vite (desarrollo):
+
+```powershell
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Cómo probar notificaciones y sincronización local
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- Habilita notificaciones desde la UI (botón "Permitir notificaciones").
+- Usa "Enviar notificación de prueba" para generar una notificación local (se intenta por Service Worker primero y luego por la página).
+- Las entradas/actividades se guardan en IndexedDB. El Service Worker ya no intentará enviar datos a un backend remoto.
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Para más detalles técnicos revisa `src/components/PushManager.tsx` y `public/sw.js`.
